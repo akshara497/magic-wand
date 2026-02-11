@@ -2,39 +2,72 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Magic Wand Demo</title>
+    <title>Magic Wand Live</title>
     <script src="coi-serviceworker.js"></script>
-
     <style>
-        body { font-family: sans-serif; padding: 20px; text-align: center; }
-        #features { width: 80%; padding: 10px; font-size: 16px; margin-bottom: 10px; }
-        #run-inference { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
-        #results { margin-top: 20px; text-align: left; background: #eee; padding: 15px; display: inline-block; min-width: 200px; border-radius: 5px; }
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; padding-top: 50px; }
+        #status { font-size: 1.2em; color: #aaa; margin-bottom: 20px; }
+        #prediction { font-size: 3em; font-weight: bold; margin: 20px 0; }
+        #btn-start { padding: 20px 40px; font-size: 20px; cursor: pointer; background: #00ff88; border: none; border-radius: 50px; font-weight: bold; }
+        .recording { color: #ff4444 !important; }
     </style>
 </head>
 <body>
-    <h1>Model Loading...</h1>
-
-    <p>
-        <input type="text" id="features" placeholder="Paste raw features here (comma separated)">
-    </p>
-    <p>
-        <button id="run-inference">Run Inference</button>
-    </p>
-    <div id="results">Classification results will appear here.</div>
+    <h1 id="project-name">Magic Wand AI</h1>
+    <div id="status">Model Loading...</div>
+    <div id="prediction">---</div>
+    <button id="btn-start">ACTIVATE WAND</button>
 
     <script src="edge-impulse-standalone.js"></script>
     <script src="run-impulse.js"></script>
 
     <script>
-        (async () => {
-            try {
-                var classifier = new EdgeImpulseClassifier();
-                await classifier.init();
+        let classifier;
+        let sensorData = [];
+        const SAMPLING_FREQ = 60; // How many times per second to grab data
 
-                let project = classifier.getProjectInfo();
-                document.querySelector('h1').textContent = project.owner + ' / ' + project.name;
-                console.log("Model loaded successfully!");
+        (async () => {
+            classifier = new EdgeImpulseClassifier();
+            await classifier.init();
+            let project = classifier.getProjectInfo();
+            document.getElementById('project-name').textContent = project.name;
+            document.getElementById('status').textContent = "Ready to Wave!";
+        })();
+
+        document.getElementById('btn-start').onclick = async () => {
+            // Request permission for iOS/Android sensors
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                const permission = await DeviceMotionEvent.requestPermission();
+                if (permission !== 'granted') return alert("Permission Denied");
+            }
+
+            document.getElementById('status').textContent = "Wand Active!";
+            document.getElementById('status').classList.add('recording');
+            
+            // Start listening to the Accelerometer
+            window.addEventListener("devicemotion", (event) => {
+                const x = event.accelerationIncludingGravity.x;
+                const y = event.accelerationIncludingGravity.y;
+                const z = event.accelerationIncludingGravity.z;
+
+                sensorData.push(x, y, z);
+
+                // Most Edge Impulse models need a specific window of data (e.g., 2 seconds)
+                // If we have enough data, run the AI!
+                if (sensorData.length >= 120) { // Adjust based on your model's window size
+                    let res = classifier.classify(sensorData);
+                    let topResult = res.results[0]; // Gets the highest probability
+                    
+                    document.getElementById('prediction').textContent = topResult.label.toUpperCase();
+                    
+                    // Clear some old data so it moves in a "sliding window"
+                    sensorData.splice(0, 3); 
+                }
+            });
+        };
+    </script>
+</body>
+</html>                console.log("Model loaded successfully!");
             } catch (err) {
                 console.error("Model failed to load:", err);
                 document.querySelector('h1').textContent = "Model Load Failed";
