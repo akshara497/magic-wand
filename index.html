@@ -2,39 +2,63 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Browser inference demo</title>
+    <title>Magic Wand Demo</title>
+    <script src="coi-serviceworker.js"></script>
 
     <style>
-        #features {
-            width: 50%;
-            font-size: 18px;
-        }
-
-        #results {
-            font-family: monospace;
-            white-space: pre;
-        }
+        body { font-family: sans-serif; padding: 20px; text-align: center; }
+        #features { width: 80%; padding: 10px; font-size: 16px; margin-bottom: 10px; }
+        #run-inference { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        #results { margin-top: 20px; text-align: left; background: #eee; padding: 15px; display: inline-block; min-width: 200px; border-radius: 5px; }
     </style>
 </head>
 <body>
-    <h1></h1>
+    <h1>Model Loading...</h1>
 
     <p>
-        <input type="text" id="features" placeholder="Paste your features here">
+        <input type="text" id="features" placeholder="Paste raw features here (comma separated)">
     </p>
     <p>
-        <button id="run-inference">Run inference</button>
+        <button id="run-inference">Run Inference</button>
     </p>
-    <p id="results"></p>
+    <div id="results">Classification results will appear here.</div>
 
     <script src="edge-impulse-standalone.js"></script>
     <script src="run-impulse.js"></script>
+
     <script>
         (async () => {
-            var classifier = new EdgeImpulseClassifier();
-            await classifier.init();
+            try {
+                var classifier = new EdgeImpulseClassifier();
+                await classifier.init();
 
-            let project = classifier.getProjectInfo();
+                let project = classifier.getProjectInfo();
+                document.querySelector('h1').textContent = project.owner + ' / ' + project.name;
+                console.log("Model loaded successfully!");
+            } catch (err) {
+                console.error("Model failed to load:", err);
+                document.querySelector('h1').textContent = "Model Load Failed";
+            }
+
+            document.querySelector('#run-inference').onclick = () => {
+                const featureInput = document.querySelector('#features').value;
+                if (!featureInput) {
+                    alert("Please paste your features first!");
+                    return;
+                }
+
+                try {
+                    let features = featureInput.split(',').map(x => Number(x.trim()));
+                    let res = classifier.classify(features);
+                    document.querySelector('#results').textContent = JSON.stringify(res, null, 4);
+                } catch (ex) {
+                    alert('Error: ' + ex.message);
+                }
+            };
+        })();
+    </script>
+</body>
+</html>            let project = classifier.getProjectInfo();
             document.querySelector('h1').textContent = project.owner + ' / ' + project.name + ' (version ' + project.deploy_version + ')';
 
             document.querySelector('#run-inference').onclick = () => {
